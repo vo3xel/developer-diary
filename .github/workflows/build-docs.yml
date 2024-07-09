@@ -1,3 +1,5 @@
+build-docs.yml
+ {...}
 name: Build documentation
 
 on:
@@ -5,9 +7,13 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  pages: write
+
 env:
   INSTANCE: 'Writerside/developer-diary'
-  ARTIFACT: 'developer-diary-all.zip'
+  ARTIFACT: 'web-all.zip'
   DOCKER_VERSION: '241.16003'
 
 jobs:
@@ -32,6 +38,7 @@ jobs:
           name: docs
           path: |
             artifacts/${{ env.ARTIFACT }}
+            artifacts/report.json
           retention-days: 7
   test:
     needs: build
@@ -47,3 +54,29 @@ jobs:
         uses: JetBrains/writerside-checker-action@v1
         with:
           instance: ${{ env.INSTANCE }}
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: docs
+
+      - name: Unzip artifact
+        run: unzip -O UTF-8 -qq '${{ env.ARTIFACT }}' -d dir
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Package and upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dir
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
